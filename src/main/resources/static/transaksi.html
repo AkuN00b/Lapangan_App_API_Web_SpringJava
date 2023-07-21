@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UAS 027 Gerlando PRG 7 API Thymeleaf</title>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/" style="font-weight: bold;">UAS_027 PRG 7</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <div class="navbar-nav">
+                <a class="nav-link" aria-current="page" href="/listlapanganth">View Lapangan</a>
+                <a class="nav-link" href="/addlapanganth">Add Lapangan</a>
+                <a class="nav-link" href="/viewTransaksi.html" >View Transaksi</a>
+                <a class="nav-link" href="/transaksi.html" style="font-weight: bold;">Add Transaksi</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <h1>Add Transaksi</h1>
+    <div style="display: flex;">
+        <table style="margin-right: 20px;">
+            <tr>
+                <td><label for="nama_penyewa">Nama Penyewa</label></td>
+                <td><input type="text" id="nama_penyewa" name="nama_penyewa" class="form-control"></td>
+            </tr>
+            <tr>
+                <td><label for="tanggal_sewa">Tanggal Sewa</label></td>
+                <td><input type="date" id="tanggal_sewa" name="tanggal_sewa" class="form-control"></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td><button type="button" class="form-control" id="saveTransaksi" onclick="saveTransaksi()">Save!</button></td>
+            </tr>
+        </table>
+
+        <table id="formDetail" hidden>
+            <tr>
+                <td><label for="lapangan">Lapangan</label></td>
+                <td><select class="form-select" name="lapangan" id="lapangan">
+                </select></td>
+            </tr>
+            <tr>
+                <td><label for="waktuMulai">Waktu Mulai</label></td>
+                <td><input type="time" id="waktuMulai" name="waktuMulai" class="form-control"></td>
+            </tr>
+            <tr>
+                <td><label for="jamSewa">Jumlah Jam Sewa</label></td>
+                <td><input type="number" id="jamSewa" name="jamSewa" class="form-control"></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td><button type="button" class="form-control" onclick="saveDetail()">Save!</button></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<script>
+    let processedData = [];
+    function saveTransaksi() {
+        var namaPenyewa = document.getElementById("nama_penyewa").value;
+        var tanggalSewa = document.getElementById("tanggal_sewa").value;
+        var url = "/saveTransaksi?namaPenyewa=" + encodeURIComponent(namaPenyewa) + "&tanggalSewa=" + encodeURIComponent(tanggalSewa);
+        var detailTable = document.getElementById("detail");
+        var detailForm = document.getElementById("formDetail");
+
+        fetch(url, {
+            method: 'GET'
+        }).then(response => {
+            if (response.ok) {
+                alert("Transaction saved successfully!");
+                var select = $('#lapangan');
+                $.getJSON('http://localhost:8080/getLapanganAktif', function(data) {
+                    // Menghapus opsi yang ada sebelumnya
+                    select.empty();
+
+                    // Menambahkan opsi default
+                    select.append('<option value="" selected>-- Pilih Lapangan --</option>');
+
+                    // Menambahkan opsi-opsi dari respons API
+                    data.forEach(function(lapangan) {
+                        select.append('<option value="' + lapangan.id_lapangan + '" data-harga="' + lapangan.harga_lapangan + '">' + lapangan.nama_lapangan + '</option>');
+                    });
+                });
+
+                detailForm.removeAttribute("hidden");
+
+                exceptionDateTime(tanggalSewa);
+            } else {
+                alert("Failed to save transaction.");
+            }
+        }).catch(error => {
+            alert("Error save transaction occurred:", error);
+        });
+    }
+
+    function calculateEndTime(start, duration) {
+        const startTime = new Date(`1970-01-01T${start}`);
+        const endTime = new Date(startTime.getTime() + duration * 60 * 60 * 1000);
+        const formattedEndTime = endTime.toLocaleTimeString([], { timeStyle: "short" });
+        return formattedEndTime;
+    }
+
+    function exceptionDateTime(tanggal) {
+        console.log(tanggal);
+
+        var url = "/getTransaksiByDate?tanggalSewa=" + encodeURIComponent(tanggal);
+        fetch(url, {
+            method: 'GET'
+        }).then(response => response.json())
+            .then(data => {
+                processedData = data.map(item => ({
+                    id_lapangan: item.id_lapangan,
+                    waktu_mulai: item.waktu_mulai.slice(0, -3),
+                    waktu_selesai: calculateEndTime(item.waktu_mulai, item.jumlah_jam_sewa),
+                }));
+
+                console.log(processedData);
+            })
+            .catch(error => {
+            alert("Error save detail transaction occurred:", error);
+        });
+    }
+
+    function saveDetail() {
+        var lapangan = document.getElementById("lapangan");
+        var selectedOption = lapangan.options[lapangan.selectedIndex];
+        var selectedValue = selectedOption.value;
+        var selectedHarga = selectedOption.getAttribute("data-harga");
+
+        var waktuMulai = document.getElementById("waktuMulai").value;
+        var jamSewa = document.getElementById("jamSewa").value;
+        var waktuSelesai = calculateEndTime(waktuMulai, jamSewa);
+        var subTotal = jamSewa * selectedHarga;
+        var url = "/saveDetail?id=" + encodeURIComponent(selectedValue) + "&waktu=" + encodeURIComponent(waktuMulai) + "&jam=" + encodeURIComponent(jamSewa) + "&subtot=" + encodeURIComponent(subTotal);
+
+        console.log(waktuSelesai);
+        console.log(waktuMulai);
+        for (const item of processedData) {
+            if (
+                selectedValue == item.id_lapangan &&
+                ((waktuMulai >= item.waktu_mulai &&
+                waktuMulai <= item.waktu_selesai) ||
+                (waktuSelesai >= item.waktu_mulai &&
+                waktuSelesai <= item.waktu_selesai))
+            ) {
+                alert("Lapangan sudah disewa");
+                return;
+            }
+        }
+
+        fetch(url, {
+            method: 'GET'
+        }).then(response => {
+            if (response.ok) {
+                alert("Detail Transaction saved successfully!");
+            } else {
+                alert("Failed to save detail transaction.");
+            }
+        }).catch(error => {
+            alert("Error save detail transaction occurred:", error);
+        });
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
+</body>
+</html>
